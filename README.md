@@ -11,7 +11,7 @@ This project is part of the [Udacity Self-Driving Car Nanodegree Program](https:
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-The main pipeline is in [advanced_lane_finder.ipynb]('./advanced_lane.finder.ipynb').
+The main pipeline is in [advanced_lane_finder.ipynb]('advanced_lane_finder.ipynb').
 
 ## 1. Camera calibration and undistortion
 
@@ -21,35 +21,35 @@ The code for the calibration is in calibrateCamera(). Using the provided chessbo
 
 One complication is that I don't know the real-world coordinates of the chessboard corners, relative to the camera. But I can handle this by shifting our reference frame to use the chessboard itself as the origin (0,0,0) of the real-world coordinates. I can also use the size of a chessboard square as the unit distance in the real world, so the corner coordinates are now really simple: (1,0,0),(2,0,0),(1,1,0),etc. This seems like a trick, but it's just using smart rescaling of coordinates. 
 
-![Chessboard corner finding]['./pipelines_examples/chessboard_corners.png']
+![Chessboard corner finding]('./pipelines_examples/chessboard_corners.png')
 
 Next I take the list of image points and object points and use cv2.calibrateCamera() to determine the camera matrix (which specifies the intrinsic camera features: focal lengths and lens offsets) and the coefficients for the distortion-correction polynomials. Using this matrix and coefficients, it's straightforward to undistort new images from this camera using cv2.undistort().
 
-![Original (distorted) image]['./pipelines_examples/original_distorted.png']
-![Undistorted image]['./pipelines_examples/original_undistorted.png']
+![Original (distorted) image]('./pipelines_examples/original_distorted.png')
+![Undistorted image]('./pipelines_examples/original_undistorted.png')
 
 ## 2. Creating a thresholded binary image of lane pixels
 
 This is the most challenging part of the project, and the code is in selectLanePixels(). Following the course examples and some of the discussion from other students, I convert the image to HLS color space, and select pixels in a (high) range of the S channel. This is very good at picking up the yellow lane line, even in shadow. The white lane line is much more difficult. After initially trying to use the L channel of the HSL color space, I settled on a combination of the L channel (which indicates brightness/lightness) in LAB color space, and evaluating the x-gradient using a Sobel operator on a grayscale image. (Using LAB color space was inspired by various comments from students on the Slack channel.) This combination is less effective, mostly in the shadowed areas (it seems to handle the light-colored pavement relatively well). The union of all pixels that passed at least one test is then returned as a binary (one-channel) image. 
 
-![Lane pixel detection]['./pipelines_examples/lane_pixel_detection.png']
+![Lane pixel detection]('./pipelines_examples/lane_pixel_detection.png')
 
 ## 3. Calculating the perspective transform and warping image
 
 To transform the image perspective to a birds-eye view, I first use two test images of straight road segments to calculate the vanishing point for this camera view with findVanishingPoint(). I do this with techniques from the first project: a gaussian blur to smooth the image; a Canny edge detector to find the lines in the ROI; and a Hough transform to find the dominant lines. Once I have the lines, I have to calculate where they intersect, which is the vp. There may be more than two of them, so I use a linear algebra technique: rearrange the slope and intercept to form a matrix, and solve using numpy's least squares function.
 
-![Vanishing point determination]['./pipelines_examples/vanishing_point.png']
+![Vanishing point determination]('./pipelines_examples/vanishing_point.png')
 
 Once I have the vanishing point, it's easy to determine the four corner points of the ROI; I set vertical limits on the ROI and calculate the horizontal positions that fall on the vanishing lines. Using those four points and the four corners of the ROI, I use cv2.getPerspectiveTransform() to determine the warping matrix (within the function calculatePerspectiveTransform() ). I can then apply it easily using cv2.warpPerspective().
 
-![ROI before perspective transform]['./pipelines_examples/roi_before_warp.png']
-![ROI after perspective transform]['./pipelines_examples/roi_after_warp.png']
+![ROI before perspective transform]('./pipelines_examples/roi_before_warp.png')
+![ROI after perspective transform]('./pipelines_examples/roi_after_warp.png')
 
 ## 4. Detect lane pixels and fit lane lines
 
 To detect the lanes, I warp the binary image of lane pixels to the birds-eye view, using the perspective transform I just calculated. I then use the sliding-window technique. To do this intuitively, I use a Lane class, defined at the beginning of the notebook, and create two instances for the left and right lanes. This class has a method findAndFit(), which attempts to find the centroid of the lane at various heights in the image (windows) based on the detected lane pixels. For efficiency, once it has successfully detected the lane at one window, it uses that horizontal point to beginning the search in the window above, over a smaller horizontal range of pixels. After some experimentation, I ended up using 8 total windows, with a window width of 128 pixels. The horizontal and vertical positions of the lane in these windows are then fit using a second-order polynomial.
 
-![Sliding windows]['./pipelines_examples/sliding_windows.jpg']
+![Sliding windows]('./pipelines_examples/sliding_windows.jpg')
 
 ## 5. Draw lane on original image and calculate curvature and lane offset 
 
