@@ -25,8 +25,7 @@ One complication is that I don't know the real-world coordinates of the chessboa
 
 Next I take the list of image points and object points and use cv2.calibrateCamera() to determine the camera matrix (which specifies the intrinsic camera features: focal lengths and lens offsets) and the coefficients for the distortion-correction polynomials. Using this matrix and coefficients, it's straightforward to undistort new images from this camera using cv2.undistort().
 
-![Original (distorted) image](./pipeline_examples/original_distorted.png)
-![Undistorted image](./pipeline_examples/original_undistorted.png)
+![Original and undistorted image](./pipeline_examples/original_undistorted.png)
 
 ## 2. Creating a thresholded binary image of lane pixels
 
@@ -42,8 +41,7 @@ To transform the image perspective to a birds-eye view, I first use two test ima
 
 Once I have the vanishing point, it's easy to determine the four corner points of the ROI; I set vertical limits on the ROI and calculate the horizontal positions that fall on the vanishing lines. Using those four points and the four corners of the ROI, I use cv2.getPerspectiveTransform() to determine the warping matrix (within the function calculatePerspectiveTransform() ). I can then apply it easily using cv2.warpPerspective().
 
-![ROI before perspective transform](./pipeline_examples/roi_before_warp.png)
-![ROI after perspective transform](./pipeline_examples/roi_after_warp.png)
+![ROI before and after perspective transform](./pipeline_examples/roi_before_after_warp.png)
 
 ## 4. Detect lane pixels and fit lane lines
 
