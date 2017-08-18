@@ -23,7 +23,7 @@ One complication is that I don't know the real-world coordinates of the chessboa
 
 ![Chessboard corner finding](./pipeline_examples/chessboard_corners.png)
 
-Next I take the list of image points and object points and use cv2.calibrateCamera() to determine the camera matrix (which specifies the intrinsic camera features: focal lengths and lens offsets) and the coefficients for the distortion-correction polynomials. Using this matrix and coefficients, it's straightforward to undistort new images from this camera using cv2.undistort().
+Next I take the list of image points and object points and use cv2.calibrateCamera() to determine the camera matrix (which specifies the intrinsic camera features: focal lengths and lens offsets) and the coefficients for the distortion-correction polynomials. Using this matrix and coefficients, it's straightforward to undistort new images from this camera using cv2.undistort(). Below: original image (left), undistorted (right).
 
 ![Original and undistorted image](./pipeline_examples/original_undistorted.png)
 
@@ -39,7 +39,7 @@ To transform the image perspective to a birds-eye view, I first use two test ima
 
 ![Vanishing point determination](./pipeline_examples/vanishing_point.png)
 
-Once I have the vanishing point, it's easy to determine the four corner points of the ROI; I set vertical limits on the ROI and calculate the horizontal positions that fall on the vanishing lines. Using those four points and the four corners of the ROI, I use cv2.getPerspectiveTransform() to determine the warping matrix (within the function calculatePerspectiveTransform() ). I can then apply it easily using cv2.warpPerspective().
+Once I have the vanishing point, it's easy to determine the four corner points of the ROI; I set vertical limits on the ROI and calculate the horizontal positions that fall on the vanishing lines. Using those four points and the four corners of the ROI, I use cv2.getPerspectiveTransform() to determine the warping matrix (within the function calculatePerspectiveTransform() ). I can then apply it easily using cv2.warpPerspective(). Below: image with ROI before transform (left); warped image (center); image after warping back (right).
 
 ![ROI before and after perspective transform](./pipeline_examples/roi_before_after_warp.png)
 
