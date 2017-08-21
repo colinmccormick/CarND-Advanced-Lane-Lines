@@ -25,11 +25,12 @@ One complication is that I don't know the real-world coordinates of the chessboa
 
 Next I take the list of image points and object points and use cv2.calibrateCamera() to determine the camera matrix (which specifies the intrinsic camera features: focal lengths and lens offsets) and the coefficients for the distortion-correction polynomials. Using this matrix and coefficients, it's straightforward to undistort new images from this camera using cv2.undistort(). Below: original image (left), undistorted (right).
 
+![Original and undistorted chessboard](./pipeline_examples/chessboard_undistort.png)
 ![Original and undistorted image](./pipeline_examples/original_undistorted.png)
 
 ## 2. Creating a thresholded binary image of lane pixels
 
-This is the most challenging part of the project, and the code is in selectLanePixels(). Following the course examples and some of the discussion from other students, I convert the image to HLS color space, and select pixels in a (high) range of the S channel. This is very good at picking up the yellow lane line, even in shadow. The white lane line is much more difficult. After initially trying to use the L channel of the HSL color space, I settled on a combination of the L channel (which indicates brightness/lightness) in LAB color space, and evaluating the x-gradient using a Sobel operator on a grayscale image. (Using LAB color space was inspired by various comments from students on the Slack channel.) This combination is less effective, mostly in the shadowed areas (it seems to handle the light-colored pavement relatively well). The union of all pixels that passed at least one test is then returned as a binary (one-channel) image. 
+This is the most challenging part of the project, and the code is in selectLanePixels(). Following the course discussion and feedback from reviewers, I decided to use the LAB color space for yellow (the B channel) and the LUV color space for white (the L channel). After playing around with different values for the ranges, I settled on values for each (190,255 for B and 225,255 for L). Based on some discussion from other students, I also chose to normalize the B channel to maximum brightness (255), unless the maximum pre-normalization value was below a certain threshold, which helps mask out false positive detections. I ultimately decided not to use Sobel gradients. The union of all pixels that passed at least one test is then returned as a binary (one-channel) image. 
 
 ![Lane pixel detection](./pipeline_examples/lane_pixel_detection.png)
 
@@ -45,21 +46,29 @@ Once I have the vanishing point, it's easy to determine the four corner points o
 
 ## 4. Detect lane pixels and fit lane lines
 
-To detect the lanes, I warp the binary image of lane pixels to the birds-eye view, using the perspective transform I just calculated. I then use the sliding-window technique. To do this intuitively, I use a Lane class, defined at the beginning of the notebook, and create two instances for the left and right lanes. This class has a method findAndFit(), which attempts to find the centroid of the lane at various heights in the image (windows) based on the detected lane pixels. For efficiency, once it has successfully detected the lane at one window, it uses that horizontal point to beginning the search in the window above, over a smaller horizontal range of pixels. After some experimentation, I ended up using 8 total windows, with a window width of 128 pixels. The horizontal and vertical positions of the lane in these windows are then fit using a second-order polynomial.
+To detect the lanes, I warp the binary image of lane pixels to the birds-eye view, using the perspective transform I just calculated. I then use the sliding-window technique. To do this intuitively, I use a Lane class, defined at the beginning of the notebook, and create two instances for the left and right lanes. The main lane line finding routine is findAndFit(), which runs in two different modes depending on whether I found a valid fit for the lane in the previous frame. If not (e.g. the first frame) I search the lower quadrant of the image for the starting X position of the lane (left or right), and then look for a centroid of pixels in sliding windows moving vertically. The center of those windows is updated based on the centroid found in the one immediately lower. 
+
+For cases where the previous frame found a fit, the search is confined to windows that are positioned based on the fit, so I'm only searching in a small window around where the lane in the previous frame was positioned. Once the centroids are found, the horizontal and vertical positions of the lane in these windows are then fit using a second-order polynomial. Finally, I apply a sanity-check test to see if I should accepth the proposed fit, which is based on whether the left and right fits at the bottom of the screen are the expected distance apart (the lane width).
 
 ![Sliding windows](./pipeline_examples/sliding_windows.jpg)
 
 ## 5. Draw lane on original image and calculate curvature and lane offset 
 
-I save the lane fits from the last 8 frames, and use this to compute and draw the lane position in the warped space, in the function drawLane(). Next I warp back to the original view (using the inverse perspective transform calculated above) and impose this lane marker on the frame. 
+I save the lane fits from the last 4 frames, and use this to compute and draw the lane position in the warped space, in the function drawLane(). Next I warp back to the original view (using the inverse perspective transform calculated above) and impose this lane marker on the frame. 
+
+To better visualize the lane pixel detection and lane marker fit, I write a small (40% scale) version of the sliding window fit into the upper-right corner of the frame.
 
 I calculate the lane offset by simply determining the lane center from the position of the two lane lines, and determine how far off center in the image this is. Using the provided conversion from pixels to meters, I can calculate the true offset. This is under 30 cm in most frames, which makes sense. Calculating the lane curvature is slightly more difficult. Using the  formula for curvature from a second-order polynomial fit, I have to accurately include the x and y pixel calibration in the fit formula. The algebra for doing that is encapsulated in the Lane class function calculateCurvature(), which also averages the curvature of previous frames. I write the offset and curvature directly onto the frame using cv2.putText().
 
 ![Lane marker](./pipeline_examples/lane_marker.png)
 
+## 6. Calculate the speed
+
+As an extra piece of analysis, I use the intermitent white lane markers on the right side, which are a uniform 40 feet/16 meters apart, to measure the speed of the vehicle. I do this by testing the bottom-most sliding window to see if there are pixels stretching the full width from top to bottom - this indicates that a lane marker is present, since they are longer than the sliding window is tall. By tracking how many frames it takes until the next lane marker appears in this same window, I can then calculate the vehicle's speed (this also requires knowing the frame rate of the video, which I extract using clip.fps). I convert this to km/h and write it on the image. The result is about 110-120 km/h (68-74 mph).
+
 The video of the entire pipeline applied to the project video is [here](./output_video/video_output.mp4). The pipeline performs reasonably well in the project video, although it struggles a little with the shadow regions. This isn't too surprising, since it's difficult to distinguish the white lines in the shadow, and the L channel isn't very helpful. The frame averaging technique helps somewhat. 
 
-## 6. Ideas.
+## 7. Ideas.
 
 1. Improving centroid finding in the sliding window technique. Right now the pipeline integrates the window pixels vertically (a histogram) and then identifies all non-zero positions with np.flatnonzero(). Taking the mean of this gives the mean index position of these non-zero vertical integrations of pixels, a generally effective technique. It tends to fail when the pixel detection has mostly picked up edges, or when there are any stray pixels around. This could be improved by thresholding the histogram to drop any horizontal positions that have too few (but not zero) pixels.
 
