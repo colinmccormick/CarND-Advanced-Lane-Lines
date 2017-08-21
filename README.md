@@ -60,15 +60,13 @@ To better visualize the lane pixel detection and lane marker fit, I write a smal
 
 I calculate the lane offset by simply determining the lane center from the position of the two lane lines, and determine how far off center in the image this is. Using the provided conversion from pixels to meters, I can calculate the true offset. This is under 30 cm in most frames, which makes sense. Calculating the lane curvature is slightly more difficult. Using the  formula for curvature from a second-order polynomial fit, I have to accurately include the x and y pixel calibration in the fit formula. The algebra for doing that is encapsulated in the Lane class function calculateCurvature(), which also averages the curvature of previous frames. I write the offset and curvature directly onto the frame using cv2.putText().
 
+As an extra piece of analysis, I use the intermitent white lane markers on the right side, which are a uniform 40 feet/16 meters apart, to measure the speed of the vehicle. I do this by testing the bottom-most sliding window to see if there are pixels stretching the full width from top to bottom - this indicates that a lane marker is present, since they are longer than the sliding window is tall. By tracking how many frames it takes until the next lane marker appears in this same window, I can then calculate the vehicle's speed (this also requires knowing the frame rate of the video, which I extract using clip.fps). I convert this to km/h and write it on the image. The result is about 110-120 km/h (68-74 mph), which is reasonable.
+
 ![Lane marker](./pipeline_examples/lane_marker.png)
-
-## 6. Calculate the speed
-
-As an extra piece of analysis, I use the intermitent white lane markers on the right side, which are a uniform 40 feet/16 meters apart, to measure the speed of the vehicle. I do this by testing the bottom-most sliding window to see if there are pixels stretching the full width from top to bottom - this indicates that a lane marker is present, since they are longer than the sliding window is tall. By tracking how many frames it takes until the next lane marker appears in this same window, I can then calculate the vehicle's speed (this also requires knowing the frame rate of the video, which I extract using clip.fps). I convert this to km/h and write it on the image. The result is about 110-120 km/h (68-74 mph).
 
 The video of the entire pipeline applied to the project video is [here](./output_video/video_output.mp4). The pipeline performs reasonably well in the project video, although it struggles a little with the shadow regions. This isn't too surprising, since it's difficult to distinguish the white lines in the shadow, and the L channel isn't very helpful. The frame averaging technique helps somewhat. 
 
-## 7. Ideas.
+## 6. Ideas
 
 1. Improving centroid finding in the sliding window technique. Right now the pipeline integrates the window pixels vertically (a histogram) and then identifies all non-zero positions with np.flatnonzero(). Taking the mean of this gives the mean index position of these non-zero vertical integrations of pixels, a generally effective technique. It tends to fail when the pixel detection has mostly picked up edges, or when there are any stray pixels around. This could be improved by thresholding the histogram to drop any horizontal positions that have too few (but not zero) pixels.
 
